@@ -1,13 +1,18 @@
-//-----------------------------------------------------------------------
-// $Id: LipoGasGauge.pde 78 2011-06-12 17:26:30Z davidtamkun $
-//-----------------------------------------------------------------------
-//         Program: Lipo Logger TFT
-//         $Author: davidtamkun $
-//           $Date: 2011-06-12 10:26:30 -0700 (Sun, 12 Jun 2011) $
-//            $Rev: 78 $
-//
-// Source/Based On: Sample App by J.C. Woltz
-//
+/** \file LipoLoggerShield.pde
+ *  \brief This is the file containing the code for the Lipo Gas Gauge Logger
+ *         using the Data Logging Shield from Adafruit and a 1.8 inch TFT LCD
+ *         display, also from Adafruit.
+ *
+ * -----------------------------------------------------------------------
+ * $Id: LipoGasGauge.pde 78 2011-06-12 17:26:30Z davidtamkun $
+ * -----------------------------------------------------------------------
+ *         Program: Lipo Logger Shield
+ *         $Author: davidtamkun $
+ *           $Date: 2011-06-12 10:26:30 -0700 (Sun, 12 Jun 2011) $
+ *            $Rev: 78 $
+ *
+ * Source/Based On: Sample App by J.C. Woltz
+ */
 //         History: DMT 02/22/2011 Created Original Version
 //                  DMT 02/23/2011 v1.1.0 LCD to use i2c
 //                  DMT 02/26/2011 V1.1.1 LCD using SPI.  Unable to get Log Shield Working
@@ -134,7 +139,9 @@
 //******************************************************************************
 //#define DEBUG          2    // Uncomment to display addl diagnostic msgs on the Serial Monitor
 
-// how many milliseconds between grabbing data and logging it. 1000 ms is once a second
+/** \def LOG_INTERVAL
+ *  \brief how many milliseconds between grabbing data and logging it. 1000 ms is once a second.
+ */
 #define LOG_INTERVAL  1000 // mills between entries (reduce to take more/faster data)
 
 // how many milliseconds before writing the logged data permanently to disk
@@ -142,14 +149,21 @@
 // set it to 10*LOG_INTERVAL to write all data every 10 datareads, you could lose up to 
 // the last 10 reads if power is lost but it uses less power and is much faster!
 #define SYNC_INTERVAL 10000 // mills between calls to flush() - to write data to the card
-uint32_t syncTime = 0; // time of last sync()
+
+/** \var uint32_t syncTime
+ *  \brief time of the last sync()
+ */
+uint32_t syncTime = 0;
 
 // the digital pins that connect to the LEDs
 //#define redLEDpin 2
 //#define greenLEDpin 3
 // for Data Logging Shield
-#define redLEDpin        9
-#define greenLEDpin      8
+//#define redLEDpin        9
+//#define greenLEDpin      8
+
+#define redLEDpin        7
+#define greenLEDpin      6
 
 
 // for the data logging shield, we use digital pin 10 for the SD cs line
@@ -160,10 +174,13 @@ uint32_t syncTime = 0; // time of last sync()
 
 
 
-#define NUMCOLS        20    // number of LCD Columns
-#define NUMROWS         4    // number of LCD Lines
+#define NUMCOLS        21    // number of LCD Columns
+#define NUMROWS         8    // number of LCD Lines
 //#define LINEBUFSIZE    (NUMCOLS * NUMROWS) + 1    // 6 lines of 14 characters plus trailing NULL
 #define LINEBUFSIZE    24
+
+#define TFT_ROW_HEIGHT 9    // number of pixels for each row
+#define TFT_COL_WIDTH  6    // number of pixels for each column
 
 // String Buffer Sizes
 #define FLOATBUFSIZE        10    // size for buffer string to contain character equivalents of floating point numbers
@@ -182,10 +199,31 @@ uint32_t syncTime = 0; // time of last sync()
 #define	GREEN           0x07E0
 #define CYAN            0x07FF
 #define MAGENTA         0xF81F
-#define YELLOW          0xFFE0 
+#define YELLOW          0xFFE0  
 #define WHITE           0xFFFF
 
+//My color Definitions
+#define DT_DARK_GREEN   0x05A0
+#define DT_DARKER_GREEN 0x0400
 
+
+//#define OLED_DC       5
+//#define OLED_CS       6
+//#define OLED_CLK      4
+//#define OLED_MOSI     3
+//#define OLED_RESET    7
+
+//#define OLED_DC       5
+//#define OLED_CS       4
+//#define OLED_CLK      2
+//#define OLED_MOSI     3
+//#define OLED_RESET    6
+
+//#define sclk 13    // for MEGAs use pin 52
+//#define mosi 11    // for MEGAs use pin 51
+#define cs 4   // for MEGAs you probably want this to be pin 53
+#define dc 9
+#define rst 8  // you can also connect this to the Arduino reset
 
 //******************************************************************************
 //** Include Library Code
@@ -196,9 +234,12 @@ uint32_t syncTime = 0; // time of last sync()
 #include "RTClib.h"
 #include "DS2764.h"
 #include <SD.h>
-#include <SPI.h>
 //#include "TFTLCD.h"
-#include <LiquidCrystal.h>
+//#include <LiquidCrystal.h>
+//#include <SSD1306.h>
+#include <ST7735.h>
+#include <SPI.h>
+
 
 
 //******************************************************************************
@@ -207,6 +248,52 @@ uint32_t syncTime = 0; // time of last sync()
 RTC_DS1307 RTC; // define the Real Time Clock object
 
 const int chipSelect = SD_CS;
+
+int    iRedraw    = 1;    // 1 means clear and redraw the entire screen
+
+char filename[] = "BATLOG00.CSV";
+  
+/*   012345678901234567890
+    "Logfile:             "
+    "  /  /         :  :  "
+    "                     "
+    "Current:     Voltage:"
+    "      mA          V  "
+    "                     "
+    "Accumulated          " 
+    "Current:     Temp dF:"
+    "    mAH      nnn.n   "
+    "                     "
+    "Charge  Stat./Current"
+    "    OFF         Ok   "
+    "                     "    
+    "Dischrg Stat./Current"
+    "    OFF         Ok   "
+    "                     "
+    "                     "
+    "       100.0%        ";
+   */
+/*    
+const char labelText[]PROGMEM =
+    "Logfile: %12s"
+    "%02d/%02d/%04d   %02d:%02d:%02d"
+    "                     "
+    "Current:     Voltage:"
+    "%6smA      %4sV  "
+    "                     "
+    "Accumulated          " 
+    "Current:     Temp dF:"
+    "%4dmAH      %5s   "
+    "                     "
+    "Charge  Stat./Current"
+    "    %3s         %2s   "
+    "                     "    
+    "Dischrg Stat./Current"
+    "    %3s         %2s   "
+    "                     "
+    "                     "
+    "       %5s%%        ";    
+*/
 
 // the logging file
 File logfile;
@@ -227,6 +314,8 @@ File logfile;
 
 DS2764 gasGauge     = DS2764();
 
+//float    gfPct    = 0.0;
+
 
 // These are the pins as connected in the shield
 //#define LCD_CS A3    // Chip Select goes to Analog 3
@@ -239,8 +328,12 @@ DS2764 gasGauge     = DS2764();
 
 // our TFT wiring
 //TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, 0);
+
 // initialize the library with the numbers of the interface pins
-LiquidCrystal lcd(2, 3, 4, 5, 6, 7 );
+//LiquidCrystal lcd(2, 3, 4, 5, 6, 7 );
+//SSD1306 oled(OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
+ST7735 tft = ST7735(cs, dc, rst);    
+
 
 
 /************* HARDWARE SPI ENABLE/DISABLE */
@@ -285,13 +378,15 @@ extern void *__brkval;
 void setup() { 
     Serial.begin(9600);          // start serial communication at 9600bps
     
+    pinMode(10, OUTPUT);
+    
     delay(500);
     // use debugging LEDs
     pinMode(redLEDpin, OUTPUT);
     pinMode(greenLEDpin, OUTPUT);
 
-//    Serial.print("Free Memory: ");
-//    Serial.println(memoryFree(), DEC);
+    Serial.print("Free Memory: ");
+    Serial.println(memoryFree(), DEC);
     
     fillBuffer(gszLineBuf, LINEBUFSIZE, '\0');
     fillBuffer(gszTempBuf, TEMPBUFSIZE, '\0');
@@ -299,6 +394,11 @@ void setup() {
     fillBuffer(gszVoltBuf, VOLTBUFSIZE, '\0');
 
     Wire.begin();        // join i2c bus (address optional for master)
+
+    // connect to RTC
+    if (!RTC.begin()) {
+      Serial.println("RTC failed");
+    }    
     
     gasGauge.dsInit();
     
@@ -329,14 +429,25 @@ void setup() {
   */
   
   // set up the LCD's number of rows and columns: 
-  lcd.begin(NUMCOLS, NUMROWS);
-  lcd.clear();
+  //lcd.begin(NUMCOLS, NUMROWS);
+  //lcd.clear();
 
+  // by default, we'll generate the high voltage from the 3.3v line internally! (neat!)
+  //oled.ssd1306_init(SSD1306_SWITCHCAPVCC);
+  //oled.display();
+  
+  tft.initR();               // initialize a ST7735R chip
+  tft.writecommand(ST7735_DISPON);
+  tft.fillScreen(BLACK);
+  
+  //   0 = Portrait,  SD card to the bottom
+  // 192 = Portrait,  SD card to the top
+  // 160 = Landscape, SD card to the left
+  //  96 = Landscape, SD card to the right
+  //tft.setRotation(192);
+  
+  delay(1000);
 
-  // connect to RTC
-  if (!RTC.begin()) {
-      Serial.println("RTC failed");
-  }
 
   // set System Clock from RTC
   //setSyncProvider(RTC.get);   // the function to get the time from the RTC
@@ -362,7 +473,7 @@ void setup() {
   Serial.println("SD OK!");
   
   // create a new file
-  char filename[] = "BATLOG00.CSV";
+  //char filename[] = "BATLOG00.CSV";
   for (uint8_t i = 0; i < 100; i++) {
     filename[6] = i/10 + '0';
     filename[7] = i%10 + '0';
@@ -388,6 +499,7 @@ void setup() {
  
   // disable the SD card interface after we are done!
 //  disableSPI();
+
 
     gasGauge.dsSetPowerSwitchOn();
     delay(500);
@@ -438,7 +550,7 @@ void error(char *str)
   Serial.println(str);
   
   // red LED indicates error
-  //digitalWrite(redLEDpin, HIGH);
+  digitalWrite(redLEDpin, HIGH);
 
   while(1);
 }
@@ -482,8 +594,14 @@ void DisplayData() {
     char* szChrgOn    = NULL;
     char* szDChrgOn   = NULL;
     DateTime    dtNow;
+    float    fPct    = 0.0;
 
     
+    
+    //******************************************************************************
+    //** Get and Format Data for Logging and/or Display
+    //******************************************************************************
+
     digitalWrite(redLEDpin, HIGH);
     pstrLine.begin();
     pstrTemp.begin();
@@ -502,9 +620,11 @@ void DisplayData() {
         iPrecision = 1;
     }
     
+    fPct = gasGauge.dsGetBatteryCapacityPercent();
+    
     pstrCurrent.print(gasGauge.dsGetCurrent(),               iPrecision);    
     pstrTemp.print   (gasGauge.dsGetTempF(),                          1);        
-    pstrPercent.print(gasGauge.dsGetBatteryCapacityPercent(),         1);
+    pstrPercent.print(fPct,                                           1);
     pstrVolts.print ((gasGauge.dsGetBatteryVoltage() / 1000.0),       2);
     
     // set Voltage Status
@@ -556,6 +676,12 @@ void DisplayData() {
     }
     
     // Sampling Done
+    
+    
+    
+    //******************************************************************************
+    //** Log the Data
+    //******************************************************************************
     digitalWrite(redLEDpin, LOW);
 
     enableSPI();    // enable SD Card access
@@ -576,7 +702,7 @@ void DisplayData() {
     logfile.print(gasGauge.dsGetAccumulatedCurrent());
     logfile.print(",");
     
-    logfile.print(gasGauge.dsGetBatteryCapacityPercent(), 1);
+    logfile.print(fPct, 1);
     logfile.print(",");
     
     logfile.print(gasGauge.dsGetTempF(), 1);
@@ -648,7 +774,11 @@ void DisplayData() {
     //char   gszTempBuf[FLOATBUF    + 1];
     //char   gszCurrBuf[FLOATBUF    + 1];
     //char   gszLineBuf[NUMCOLS     + 1];
-            
+   
+   
+    //******************************************************************************
+    //** Display on 20x4 LCD
+    //******************************************************************************
     // LCD Lines
     //         1  1  1   2
     //12345678901234567890
@@ -658,7 +788,7 @@ void DisplayData() {
     //Volts:OK Temp:100.1F
     //Chg:OK OFFDch:OK OFF
     
-    pstrLine.begin();
+    /*pstrLine.begin();
     
     pstrLine.format("%6smA%5sV", gszCurrBuf, gszVoltBuf);
     lcd.setCursor(0, 0);
@@ -678,15 +808,172 @@ void DisplayData() {
     pstrLine.format("Chg:%2s %-3sDch:%2s %-3s", szChrgOn, szChrgStat, szDChrgOn, szDChrgStat);
     lcd.setCursor(0, 3);
     lcd.print(gszLineBuf);
+    */
+    
+    
+    //******************************************************************************
+    //** Display on SSD1306 OLED Display 21x8 chars, 128x64 pixels
+    //******************************************************************************
+    //123456789012345678901
+    //   -0.6mA      4191mV
+    //Acc: 2110mAh   100.1%
+    //Volts OK  Temp:100.1F
+    //Charging    Discharge
+    //Ok   OFF    Ok    OFF
+    //
+    //
+    //Free Memory: nnnn
+    /*oled.clear();   // clears the screen and buffer
+    pstrLine.begin();
+    
+    pstrLine.format("%6smA%5sV", gszCurrBuf, gszVoltBuf);
+    oled.drawstring(0, 0, gszLineBuf);
+    
+    pstrLine.begin();
+    pstrLine.format("%4dmAh %5s%%", gasGauge.dsGetAccumulatedCurrent(), gszPctBuf);
+    oled.drawstring(0, 1, gszLineBuf);
+    
+    pstrLine.begin();
+    pstrLine.format("Volts:%2s Temp:%5sF", szVoltStat, gszTempBuf);
+    oled.drawstring(0, 3, gszLineBuf);
+    
+    pstrLine.begin();
+    pstrLine.format("Chg:%2s %-3sDch:%2s %-3s", szChrgOn, szChrgStat, szDChrgOn, szDChrgStat);
+    oled.drawstring(0, 4, "Charging    Discharge");
+    oled.drawstring(0, 5, gszLineBuf);
+    
+    pstrLine.begin();
+    pstrLine.print("Free Memory: ");
+    pstrLine.print(memoryFree(), DEC);
+    oled.drawstring(0, 7, gszLineBuf);
+    oled.display();
+    */
+    
+    //******************************************************************************
+    //** Display on 1.8" TFT LCD  128 x 160
+    //******************************************************************************
+    //tft.writecommand(ST7735_DISPOFF);
+    
+   
+    //float fPct        = gasGauge.dsGetBatteryCapacityPercent() / 100.0;
+    fPct = fPct / 100.0;
+        
+    if(fPct > 1.0) {
+        fPct = 1.0;
+    }
+    else if(fPct < .01) {
+        fPct = .01;
+    }
+    
+    //fPct = .03;
+    
+    int iRectWidth    = 76 * fPct;
+    
+    uint16_t uiColor = WHITE;
+    
+    if(fPct > .34) {
+        uiColor = DT_DARK_GREEN;
+    }
+    else if(fPct > .2) {
+        uiColor = YELLOW;
+    }
+    else {
+        uiColor = RED;
+    }
+    
+    if(iRedraw > 0) {
+        tft.fillScreen(BLACK);    // Clear Screen by making it all black
+    
+        // Draw Battery Outline
+        //            X   Y   W   H
+        tft.drawRect(20, 137, 78, 20, WHITE);
+        //tft.drawRect(21, 138, 76, 18, BLUE);
+    
+        // Draw and fill Battery Positive Terminal
+        tft.drawRect(98, 142,  5, 10, WHITE);
+        tft.fillRect(98, 142,  4, 11, WHITE);
+        //tft.drawRect(98, 142,  5, 10, BLUE);
+    }
+    
+    tft.fillRect(21, 138, iRectWidth, 18, uiColor);
     
     
     
-    //nokia.clear();    // clear the screen
+ 
+    pstrLine.begin();
+    
+    //tft.drawString(0, 0, labelText, GREEN);
+ 
+    
+    //pstrLine.format(labelText, filename, 0, 0, 0, 0, 0, 0, gszCurrBuf, gszVoltBuf, gasGauge.dsGetAccumulatedCurrent(), gszTempBuf, szChrgOn, szChrgStat, szDChrgOn, szDChrgStat, gszPctBuf);
+    /*pstrLine.format("%6smA%5sV", gszCurrBuf, gszVoltBuf);
+    tft.drawString(0, 0, gszLineBuf, WHITE);
+    
+    pstrLine.begin();
+    //pstrLine.format("%4dmAh %5s%%", gasGauge.dsGetAccumulatedCurrent(), gszPctBuf);
+    tft.drawString(0, 8, gszLineBuf, WHITE);
+    
+    pstrLine.begin();
+    pstrLine.format("Volts:%2s Temp:%5sF", szVoltStat, gszTempBuf);
+    tft.drawString(0, 24, gszLineBuf, WHITE);
+    
+    pstrLine.begin();
+    pstrLine.format("Chg:%2s %-3sDch:%2s %-3s", szChrgOn, szChrgStat, szDChrgOn, szDChrgStat);
+    tft.drawString(0, 32, "Charging    Discharge", WHITE);
+    tft.drawString(0, 40, gszLineBuf, WHITE);
+    
+    pstrLine.begin();
+    pstrLine.print("Free Memory: ");
+    pstrLine.print(memoryFree(), DEC);
+    tft.drawString(0, 56, gszLineBuf, WHITE);
+    
+    tft.drawHorizontalLine(0, 7, 128, GREEN);
+    tft.drawVerticalLine(5, 0, 160, GREEN);*/
+    
+    
+    pstrLine.format("Logfile: %12s", filename);
+    tft.drawString(0, 0, gszLineBuf, WHITE);
+    
+    pstrLine.begin();
+    pstrLine.format("%02d/%02d/%04d   %02d:%02d:%02d", dtNow.month(), dtNow.day(), dtNow.year(), dtNow.hour(), dtNow.minute(), dtNow.second());
+    tft.drawString(0, (TFT_ROW_HEIGHT * 1), gszLineBuf, WHITE);
+    
+    tft.drawString(0, (TFT_ROW_HEIGHT * 3), "Current:     Voltage:", WHITE);
+    
+    pstrLine.begin();
+    pstrLine.format("%6smA     %4sV %2s", gszCurrBuf, gszVoltBuf, szVoltStat);
+    tft.drawString(0, (TFT_ROW_HEIGHT * 4), gszLineBuf, WHITE);
+    
+         
+    tft.drawString(0, (TFT_ROW_HEIGHT * 6), "Accumulated          ", WHITE);  
+    tft.drawString(0, (TFT_ROW_HEIGHT * 7), "Current:     Temp  F:", WHITE); 
+    
+    pstrLine.begin();
+    pstrLine.format("%4dmAh      %5s   ", gasGauge.dsGetAccumulatedCurrent(), gszTempBuf);
+    tft.drawString(0, (TFT_ROW_HEIGHT * 8), gszLineBuf, WHITE);
 
-    //Serial.println("got past Nokia.clear");
+   
+    tft.drawString(0, (TFT_ROW_HEIGHT * 10), "Charge  Stat./Current", WHITE); 
+    pstrLine.begin();
+    pstrLine.format("    %3s         %2s", szChrgOn, szChrgStat);
+    tft.drawString(0, (TFT_ROW_HEIGHT * 11), gszLineBuf, WHITE);
+  
+  
+    tft.drawString(0, (TFT_ROW_HEIGHT * 13), "Dischrg Stat./Current", WHITE); 
+    pstrLine.begin();
+    pstrLine.format("    %3s         %2s", szDChrgOn, szDChrgStat);
+    tft.drawString(0, (TFT_ROW_HEIGHT * 14), gszLineBuf, WHITE);
+ 
+    pstrLine.begin();
+    pstrLine.format("       %5s%%", gszPctBuf);
+    tft.drawString(0, (TFT_ROW_HEIGHT * 16), gszLineBuf, WHITE);
+   
     
+    //tft.writecommand(ST7735_DISPON);
     
-    
+    //******************************************************************************
+    //** Display on 2.8" TFT TouchScreen
+    //******************************************************************************
     //01234567890123
     //999.9mA 110.5o
     //2180mAh  99.9%
@@ -732,7 +1019,9 @@ void DisplayData() {
     pstrLine.format("Temp:  %5s F", gszTempBuf);
     tft.println(gszLineBuf);
         
-    */                
+    */   
+
+    
     //nokia.drawstring(0, 0, gszLineBuf);
     //tft.print(gszLineBuf);
     //tft.setTextColor(WHITE);
@@ -752,9 +1041,10 @@ void DisplayData() {
     
     //Serial.println(gszLineBuf);
     
-    if (!(gasGauge.dsIsChargeEnabled())) {
+    if ((gasGauge.dsIsChargeEnabled())) {
         // Charging is disabled 
         //nokia.drawline(0, 3*8 + 4, 7*6, 3*8 + 4, BLACK); 
+        tft.drawHorizontalLine(0, (TFT_ROW_HEIGHT * 10) + 4, (6*12), RED);
     }
     
     if (!(gasGauge.dsIsDischargeEnabled())) {
