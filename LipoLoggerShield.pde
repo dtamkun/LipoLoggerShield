@@ -201,10 +201,20 @@ uint32_t syncTime = 0;
 #define MAGENTA         0xF81F
 #define YELLOW          0xFFE0  
 #define WHITE           0xFFFF
+#define GRAY            0x94AF 
 
 //My color Definitions
 #define DT_DARK_GREEN   0x05A0
 #define DT_DARKER_GREEN 0x0400
+
+#define BATX    20
+#define BATY    137
+#define BATW    78
+#define BATH    20
+#define TERMX   98
+#define TERMY   142
+#define TERMW   5
+#define TERMH   10
 
 
 //#define OLED_DC       5
@@ -595,6 +605,13 @@ void DisplayData() {
     char* szDChrgOn   = NULL;
     DateTime    dtNow;
     float    fPct    = 0.0;
+    uint16_t uiBatColor    = WHITE;
+    uint16_t uiVoltColor   = GREEN;
+    uint16_t uiChgColor    = GREEN;
+    uint16_t uiDChgColor   = GREEN;
+    uint16_t uiChgEColor   = WHITE;
+    uint16_t uiDChgEColor  = WHITE;
+    
 
     
     
@@ -631,12 +648,15 @@ void DisplayData() {
     i = gasGauge.dsGetVoltageStatus();
     if (i == DS_VOLTS_HI) { 
         szVoltStat = szHi; 
+        uiVoltColor = RED;
     }
     else if (i == DS_VOLTS_LOW) { 
         szVoltStat = szLo; 
+        uiVoltColor = RED;
     }
     else {
-        szVoltStat = szOk; 
+        szVoltStat = szOk;
+        uiVoltColor = GREEN; 
     }
 
     i = gasGauge.dsGetChargeStatus();
@@ -644,9 +664,11 @@ void DisplayData() {
     if (i == DS_CHARGE_CURRENT_HI) {
         // charge current is over the threshold 
         szChrgStat = szHi;
+        uiChgColor = RED;
     }
     else {
         szChrgStat = szOk;
+        uiChgColor = GREEN;
     }     
 
     if (gasGauge.dsIsChargeOn()) { 
@@ -662,9 +684,11 @@ void DisplayData() {
     if (i == DS_DISCHARGE_CURRENT_HI) {
         // discharge current is over the threshold 
         szDChrgStat = szHi; 
+        uiDChgColor = RED;
     }
     else {
         szDChrgStat = szOk; 
+        uiDChgColor = GREEN;
     } 
     
     
@@ -715,9 +739,11 @@ void DisplayData() {
     //charging enabled?
     if(gasGauge.dsIsChargeEnabled()) {
         logfile.print("1,");
+        uiChgEColor = WHITE;
     }
     else {
         logfile.print("0,");
+        uiChgEColor = GRAY;
     }
     
     logfile.print(szChrgOn);
@@ -729,9 +755,11 @@ void DisplayData() {
     
     if(gasGauge.dsIsDischargeEnabled()) {
         logfile.print("1,");
+        uiDChgEColor = WHITE;
     }
     else {
         logfile.print("0,");
+        uiDChgEColor = GRAY;
     }
     
     logfile.print(szDChrgOn);
@@ -867,102 +895,116 @@ void DisplayData() {
     
     //fPct = .03;
     
-    int iRectWidth    = 76 * fPct;
-    
-    uint16_t uiColor = WHITE;
-    
+    int iRectWidth    = ((BATW - 3) * fPct);
+        
     if(fPct > .34) {
-        uiColor = DT_DARK_GREEN;
+        uiBatColor = DT_DARK_GREEN;
     }
     else if(fPct > .2) {
-        uiColor = YELLOW;
+        uiBatColor = YELLOW;
     }
     else {
-        uiColor = RED;
+        uiBatColor = RED;
     }
     
     if(iRedraw > 0) {
         tft.fillScreen(BLACK);    // Clear Screen by making it all black
+        
+        // Show logfile name on Line 1
+        pstrLine.begin();   
+        pstrLine.format("Logfile: %12s", filename);
+        tft.drawString(0, 0, gszLineBuf, BLUE);
+        
+        // Line 2 is dynamic, contains date and time
+        
+        // Draw Line 3
+        tft.drawString(0, (TFT_ROW_HEIGHT * 3), "Current:     Voltage:", BLUE);
+
+        // Draw Line 7
+        tft.drawString(0, (TFT_ROW_HEIGHT * 6), "Accumulated          ", BLUE);
+        // Draw Line 8  
+        tft.drawString(0, (TFT_ROW_HEIGHT * 7), "Current:     Temp  F:", BLUE); 
+        
+
     
         // Draw Battery Outline
-        //            X   Y   W   H
-        tft.drawRect(20, 137, 78, 20, WHITE);
+        //              X     Y     W     H
+        tft.drawRect(BATX, BATY, BATW, BATH, WHITE);
         //tft.drawRect(21, 138, 76, 18, BLUE);
     
         // Draw and fill Battery Positive Terminal
-        tft.drawRect(98, 142,  5, 10, WHITE);
-        tft.fillRect(98, 142,  4, 11, WHITE);
+        tft.drawRect(TERMX, TERMY,  TERMW,     TERMH,     WHITE);
+        tft.fillRect(TERMX, TERMY,  TERMW - 1, TERMH + 1, WHITE);
         //tft.drawRect(98, 142,  5, 10, BLUE);
+        
+        //iRedraw = 0;
     }
+     
+    // clear line 2
+    //tft.fillRect((TFT_COL_WIDTH * 13), (TFT_ROW_HEIGHT * 1), (TFT_COL_WIDTH * 8), TFT_ROW_HEIGHT, BLUE);
+    //pstrLine.begin();
+    //pstrLine.print(byte(218));
+    //fillBuffer(gszLineBuf, 21, byte(01));
     
-    tft.fillRect(21, 138, iRectWidth, 18, uiColor);
-    
-    
-    
- 
-    pstrLine.begin();
-    
-    //tft.drawString(0, 0, labelText, GREEN);
- 
-    
-    //pstrLine.format(labelText, filename, 0, 0, 0, 0, 0, 0, gszCurrBuf, gszVoltBuf, gasGauge.dsGetAccumulatedCurrent(), gszTempBuf, szChrgOn, szChrgStat, szDChrgOn, szDChrgStat, gszPctBuf);
-    /*pstrLine.format("%6smA%5sV", gszCurrBuf, gszVoltBuf);
-    tft.drawString(0, 0, gszLineBuf, WHITE);
-    
-    pstrLine.begin();
-    //pstrLine.format("%4dmAh %5s%%", gasGauge.dsGetAccumulatedCurrent(), gszPctBuf);
-    tft.drawString(0, 8, gszLineBuf, WHITE);
-    
-    pstrLine.begin();
-    pstrLine.format("Volts:%2s Temp:%5sF", szVoltStat, gszTempBuf);
-    tft.drawString(0, 24, gszLineBuf, WHITE);
-    
-    pstrLine.begin();
-    pstrLine.format("Chg:%2s %-3sDch:%2s %-3s", szChrgOn, szChrgStat, szDChrgOn, szDChrgStat);
-    tft.drawString(0, 32, "Charging    Discharge", WHITE);
-    tft.drawString(0, 40, gszLineBuf, WHITE);
-    
-    pstrLine.begin();
-    pstrLine.print("Free Memory: ");
-    pstrLine.print(memoryFree(), DEC);
-    tft.drawString(0, 56, gszLineBuf, WHITE);
-    
-    tft.drawHorizontalLine(0, 7, 128, GREEN);
-    tft.drawVerticalLine(5, 0, 160, GREEN);*/
-    
-    
-    pstrLine.format("Logfile: %12s", filename);
-    tft.drawString(0, 0, gszLineBuf, WHITE);
-    
+    // redraw line 2
     pstrLine.begin();
     pstrLine.format("%02d/%02d/%04d   %02d:%02d:%02d", dtNow.month(), dtNow.day(), dtNow.year(), dtNow.hour(), dtNow.minute(), dtNow.second());
     tft.drawString(0, (TFT_ROW_HEIGHT * 1), gszLineBuf, WHITE);
     
-    tft.drawString(0, (TFT_ROW_HEIGHT * 3), "Current:     Voltage:", WHITE);
+    // clear line 5
+    //pstrLine.begin();
+    //fillBuffer(gszLineBuf, 20, ' ');
+    //tft.drawString(0, (TFT_ROW_HEIGHT * 4), gszLineBuf, BLUE);
+   // tft.fillRect((TFT_COL_WIDTH * 0), (TFT_ROW_HEIGHT * 4),  (TFT_COL_WIDTH * 6), TFT_ROW_HEIGHT, BLUE);
+    //tft.fillRect((TFT_COL_WIDTH * 13), (TFT_ROW_HEIGHT * 4), (TFT_COL_WIDTH * 8), TFT_ROW_HEIGHT, BLUE);
     
+    // redraw line 5  
+    //pstrLine.begin();
+    //pstrLine.format("%6smA     %4sV %2s", gszCurrBuf, gszVoltBuf, szVoltStat);
+    //tft.drawString(0, (TFT_ROW_HEIGHT * 4), gszLineBuf, WHITE);
     pstrLine.begin();
-    pstrLine.format("%6smA     %4sV %2s", gszCurrBuf, gszVoltBuf, szVoltStat);
+    pstrLine.format("%6smA     %4sV", gszCurrBuf, gszVoltBuf);
     tft.drawString(0, (TFT_ROW_HEIGHT * 4), gszLineBuf, WHITE);
+    tft.drawString((19 * 6), (TFT_ROW_HEIGHT * 4), szVoltStat, uiVoltColor);
+    
     
          
-    tft.drawString(0, (TFT_ROW_HEIGHT * 6), "Accumulated          ", WHITE);  
-    tft.drawString(0, (TFT_ROW_HEIGHT * 7), "Current:     Temp  F:", WHITE); 
+    // Clear Line 9
     
+    // Redraw Line 9
     pstrLine.begin();
     pstrLine.format("%4dmAh      %5s   ", gasGauge.dsGetAccumulatedCurrent(), gszTempBuf);
     tft.drawString(0, (TFT_ROW_HEIGHT * 8), gszLineBuf, WHITE);
 
-   
-    tft.drawString(0, (TFT_ROW_HEIGHT * 10), "Charge  Stat./Current", WHITE); 
+    // Redraw Line 11 - since text is static and only color might change
+    // we don't have to clear first.   
+    tft.drawString(0, (TFT_ROW_HEIGHT * 10), "Charge  Stat./Current", uiChgEColor); 
+    
+    // Clear Line 12
+    
+    // Redraw Line 12
     pstrLine.begin();
     pstrLine.format("    %3s         %2s", szChrgOn, szChrgStat);
-    tft.drawString(0, (TFT_ROW_HEIGHT * 11), gszLineBuf, WHITE);
+    tft.drawString(0, (TFT_ROW_HEIGHT * 11), gszLineBuf, uiChgColor);
   
   
-    tft.drawString(0, (TFT_ROW_HEIGHT * 13), "Dischrg Stat./Current", WHITE); 
+    // Redraw Line 14 - since text is static and only color might change
+    // we don't have to clear first. 
+    tft.drawString(0, (TFT_ROW_HEIGHT * 13), "Dischrg Stat./Current", uiDChgEColor); 
+    
+    // clear line 15
+    
+    // redraw line 15
     pstrLine.begin();
     pstrLine.format("    %3s         %2s", szDChrgOn, szDChrgStat);
-    tft.drawString(0, (TFT_ROW_HEIGHT * 14), gszLineBuf, WHITE);
+    tft.drawString(0, (TFT_ROW_HEIGHT * 14), gszLineBuf, uiDChgColor);
+    
+    // clear battery drained
+    //tft.fillRect((BATX + 1 + iRectWidth), (BATY + 1), (BATW - 2 - iRectWidth), (BATH - 2), RED);
+    
+    // draw battery level
+    tft.fillRect((BATX + 1), (BATY + 1), iRectWidth, (BATH - 2), uiBatColor);
+
  
     pstrLine.begin();
     pstrLine.format("       %5s%%", gszPctBuf);
@@ -1041,15 +1083,16 @@ void DisplayData() {
     
     //Serial.println(gszLineBuf);
     
-    if ((gasGauge.dsIsChargeEnabled())) {
+    if (!(gasGauge.dsIsChargeEnabled())) {
         // Charging is disabled 
         //nokia.drawline(0, 3*8 + 4, 7*6, 3*8 + 4, BLACK); 
-        tft.drawHorizontalLine(0, (TFT_ROW_HEIGHT * 10) + 4, (6*12), RED);
+        //tft.drawHorizontalLine(0, (TFT_ROW_HEIGHT * 10) + 4, (6*12), RED);
     }
     
     if (!(gasGauge.dsIsDischargeEnabled())) {
         //Discharging is disabled 
         //nokia.drawline(0, 4*8 + 4, 7*6, 4*8 + 4, BLACK); 
+        //tft.drawHorizontalLine(0, (TFT_ROW_HEIGHT * 13) + 4, (6*12), RED);
     }
     
     //nokia.drawbitmap(72, 40, degree_bmp, 5, 8, BLACK);
