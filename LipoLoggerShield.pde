@@ -42,26 +42,35 @@
 //                  Complete
 //
 //          Wiring: Data Logging Shield from Adafruit
-//                  ---------------------------------------------------
-//                  SPI LCDBpck    Arduino
-//                  -----------    -------
-//                  GRN LATCH      D4      SPI Latch
-//                  YEL DATA       D3      SPI Data
-//                  ORN CLK        D2      SPI Clock
-//                  RED +5V        +5v
-//                  BLK GND        GND
+//                  Ard. Pin     Device Pin   Device Use                                                         
+//                  ----------   ----------   -------------------------------------------------------------------
+//                  A4                        i2c for RTC - DAT                                                  
+//                  A5                        i2c for RTC - CLK                                                  
+//                  D10                       SS   - SD Card                                                     
+//                  D11                       MOSI - HW SPI                                                      
+//                  D12                       MISO - HW SPI                                                      
+//                  D13                       SCK  - HW SPI                                                      
+//
+//                  1.8" TFT LCD from Adafruit 
+//                  Ard. Pin     Device Pin   Device Use                                                         
+//                  ----------   ----------   -------------------------------------------------------------------
+//                  GND          GND                                                                             
+//                  +5v          VCC                                                                             
+//                  D8           Reset        Optional or could connect to Arduino Reset Pin                     
+//                  D9           D/C          Data / Command Select                                              
+//                  D4           CARD_CS      SD Card Chip/Slave Select (can change pin, optional if no card use)
+//                  D10          TFT_CS       TFT LCD Chip/Slave Select                                          
+//                  D11          MOSI         SPI Master Out Serial In                                           
+//                  D13          SCK          SPI Clock                                                          
+//                  D12          MISO         SPI Master In Serial Out (optional if no SD card use)              
+//                  +5V          LITE         Backlight +5v, can PWM                                             
 //
 //                  Gas Gauge Chip Proto Board - Maxim DS2764+025
-//                  ---------------------------------------------------
-//                  Shield         Arduino
-//                  -----------    -------
-//                  GND            GND     Ground
-//                  DATA Yellow    A4      i2C Data    (pin 20 on Mega)
-//                  CLK  Orange    A5      i2C Clock   (pin 21 on Mega)
-//
-//
-//                  1.8" TFT LCD from Adafruit         
-//-----------------------------------------------------------------------
+//                  Ard. Pin     Device Pin   Device Use                                                         
+//                  ----------   ----------   -------------------------------------------------------------------
+//                  GND          GND          Ground                                                             
+//                  A4           DAT          i2C - Data                                                         
+//                  A5           CLK          i2C - Clock                                                        
 
 
 //******************************************************************************
