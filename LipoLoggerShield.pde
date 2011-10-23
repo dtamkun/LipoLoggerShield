@@ -7,6 +7,7 @@
 //          Author: Dave Tamkun 
 // 
 //         History: DMT 07/02/2011 Created Original Version
+//                  DMT 10/23/2011 Corrected Wiring info in Contents
 //
 //    Compiliation: Arduino IDE
 //
@@ -45,7 +46,9 @@
 //                  Ard. Pin     Device Pin   Device Use                                                         
 //                  ----------   ----------   -------------------------------------------------------------------
 //                  A4                        i2c for RTC - DAT                                                  
-//                  A5                        i2c for RTC - CLK                                                  
+//                  A5                        i2c for RTC - CLK
+//                  D6                        Green LED - Data Write to SD Card
+//                  D7                        Red LED   - Data Sample Captured
 //                  D10                       SS   - SD Card                                                     
 //                  D11                       MOSI - HW SPI                                                      
 //                  D12                       MISO - HW SPI                                                      
@@ -58,11 +61,11 @@
 //                  +5v          VCC                                                                             
 //                  D8           Reset        Optional or could connect to Arduino Reset Pin                     
 //                  D9           D/C          Data / Command Select                                              
-//                  D4           CARD_CS      SD Card Chip/Slave Select (can change pin, optional if no card use)
-//                  D10          TFT_CS       TFT LCD Chip/Slave Select                                          
-//                  D11          MOSI         SPI Master Out Serial In                                           
-//                  D13          SCK          SPI Clock                                                          
-//                  D12          MISO         SPI Master In Serial Out (optional if no SD card use)              
+//                  n/c          CARD_CS      SD Card Chip/Slave Select (can change pin, optional if no card use)
+//                  D4           TFT_CS       TFT LCD Chip/Slave Select                                          
+//                  D11          MOSI         HW SPI Master Out Serial In                                           
+//                  D13          SCK          HW SPI Clock                                                          
+//                  D12          MISO         HW SPI Master In Serial Out (optional if no SD card use)              
 //                  +5V          LITE         Backlight +5v, can PWM                                             
 //
 //                  Gas Gauge Chip Proto Board - Maxim DS2764+025
