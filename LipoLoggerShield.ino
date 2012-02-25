@@ -23,7 +23,7 @@
 //       Libraries: avr/pgmspace    needed for PROGMEM
 //                  PString
 //                  Wire            required for I2C communication with Gas Gauge
-//                  RTClib 
+//                  RTClib          Be sure to get Version 3 for Arduino 1.0 Compatibility 
 //                  DS2764          My Library for the Gas Gauge Chip
 //                  SD              Adafruit's SD Card Library
 //                  ST7735          Adafruit's 1.8" TFT LCD Library
